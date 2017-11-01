@@ -1,52 +1,12 @@
 from subprocess import call
 pi = 3.14159265359
 call(["ls", "-l"])
-import glob
-from Tkinter import *
-#import gui
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import math
-import random
 import sys
+import glob
+import math
 import os
 import numpy as np
-import matplotlib.cm as cm
-#import tkinter as tk
-import tkFileDialog as filedialog
-import matplotlib
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.patches import FancyArrowPatch
-matplotlib.use('TkAgg')
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
-# implement the default mpl key bindings
-from matplotlib.backend_bases import key_press_handler
-from matplotlib.figure import Figure
-#import enthought.mayavi.mlab as mylab  #bead models
-import sys
-import plotly as py
-py.tools.set_credentials_file(username='Molodenskiy', api_key='Jc4uP32ntpjUyxtMuWhl')
-import plotly.plotly as py
-import plotly.tools as plotly_tools
-from plotly.graph_objs import *
-from mpl_toolkits.mplot3d import proj3d
-if sys.version_info[0] < 3:
-    import Tkinter as Tk
-else:
-    import tkinter as Tk
 import time
-
-class Arrow3D(FancyArrowPatch):
-
-    def __init__(self, xs, ys, zs, *args, **kwargs):
-        FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
-        self._verts3d = xs, ys, zs
-
-    def draw(self, renderer):
-        xs3d, ys3d, zs3d = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
-        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
-        FancyArrowPatch.draw(self, renderer)
 
 start = time.time()
 
@@ -70,19 +30,6 @@ def mk_atom(pdbstring):
     return (ATOM(pdbstring, atomserialnumber, atomname,alternativelocationindicator,residuename,chainidentifier,residuesequencenumber,
                  codeforinsectionsofresidues,xcoord,ycoord,zcoord,occupancy,tempfactor,segmentidentifier,elementsymbol))
 
-# File save dialog
-def file_save(text):
-    f = Tk.filedialog.asksaveasfile(mode='w', defaultextension=".txt")
-    if f is None: # asksaveasfile return `None` if dialog closed with "cancel".
-        return
-    f.write(text)
-    f.close()
-# File load dialog
-def file_load():
-    file_path = filedialog.askopenfilename()
-    with open(file_path) as f:
-        pdblist = f.readlines()
-        return pdblist
 
 #class ATOM contains all info about the atom from pdb string (starting with ATOM) and returns each value by response
 class ATOM:
@@ -123,23 +70,6 @@ class ATOM:
         self._segmentidentifier = segmentidentifier
         self._elementsymbol = elementsymbol
         self._weight = self.weights[atomname[0]]
-
-    #simple overload
-    #def __init__(self,initstring, element,  residuecount, xcoord, ycoord, zcoord, occupancy):
-    #    self.__initstring = initstring
-    #    self.__element = element
-    #    #self._chain = chain
-    #    self._atomcount = residuecount
-    #    self.__xcoord = xcoord
-    #    self.__ycoord = ycoord
-    #    self.__zcoord = zcoord
-    #    self.__occupancy = occupancy
-    #    if element[0] != ('H' or 'C' or 'N' or 'O' or 'S'):
-    #        print("Bad atom! ")
-    #        print (initstring)
-    #    self.__weight = self.weights[element[0]]
-    #def set_name(self, name):
-    #    self.__name = name
 
 
     def get_pdb_string(self):
@@ -195,80 +125,7 @@ class ATOM:
     def get_type(self):
         return("ATOM")
 
-    def file_save(self):
-        f = tkFileDialog.asksaveasfile(mode='w', defaultextension=".txt")
-        if f is None:  # asksaveasfile return `None` if dialog closed with "cancel".
-            return
-        text2save = str(text.get(1.0, END))  # starts from `1.0`, not `0.0`
-        f.write(text2save)
-        f.close()
 
-# draw atoms in centre of mass and draw principal axes of inertia
-def draw_atoms(atoms, eigenVectors, centerofmass):
-    x = []
-    y = []
-    z = []
-    Nm = []
-    colors = []
-    colors_dic = {'H' : 'white', 'C' : 'black', 'N' : 'blue', 'O': 'red', 'S': 'yellow'}
-    for a in atoms:
-        x.append(float(a.get_x_coord()) - centerofmass[0])
-        y.append(float(a.get_y_coord()) - centerofmass[1])
-        z.append(float(a.get_z_coord()) - centerofmass[2])
-        Nm.append(a.get_atomname()[0])
-        colors.append(colors_dic[a.get_atomname()[0]])
-    # bead models (alternative)
-    #mylab.points3d(x, y, z, 20)
-    #mylab.show()
-    length = max(x) - min(x)
-    if (max(y) - min (y))> length: length = max(y) - min(y)
-    if (max(z) - min(z)) > length: length = max(z) - min(z)
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x, y, z, c=[ colors_dic[x] for x in Nm], s=5)
-    ax.set_xlabel('X, Angstrem')
-    ax.set_ylabel('Y, Angstrem')
-    ax.set_zlabel('Z, Angstrem')
-
-    eigenVectors = np.transpose(eigenVectors) * 0.5 * length
-
-    for vec in eigenVectors:
-        drawvec = Arrow3D([0, vec[0, 0]], [0, vec[0, 1]], [0, vec[0, 2]],
-                      mutation_scale=20, lw=3, arrowstyle="-|>", color='r')
-    # adding the arrow to the plot
-        ax.add_artist(drawvec)
-    return
-
-def move_to_center_mass(atoms, centerofmass):
-    a = []
-    for r in range(len(atoms)):  # len(atoms) raws
-        a.append([])  # create empty raw
-        a[r].append(float(atoms[r].get_x_coord()) - centerofmass[0])
-        a[r].append(float(atoms[r].get_y_coord()) - centerofmass[1])
-        a[r].append(float(atoms[r].get_z_coord()) - centerofmass[2])
-    a = np.array(a)
-    return a
-
-#calculation of weight center in certain range (in residues)
-def center_mass(atoms):
-    CMx = 0
-    M = 0
-    CMy = 0
-    CMz = 0
-    position = []
-    for atom in atoms:
-        x_coord = atom.get_x_coord()
-        y_coord = atom.get_y_coord()
-        z_coord = atom.get_z_coord()
-        weight = atom.get_weight()
-        CMx += x_coord * weight
-        CMy += y_coord * weight
-        CMz += z_coord * weight
-        M += weight
-    position.append(CMx / M)
-    position.append(CMy / M)
-    position.append(CMz / M)
-    return position
 
 def inertia_tensor_calc(atoms):
     Jxx = 0
@@ -291,31 +148,6 @@ def inertia_tensor_calc(atoms):
     tens_inertia = np.matrix([[Jxx, Jxy, Jxz], [Jxy, Jyy, Jyz], [Jxz, Jyz, Jzz]])
     return tens_inertia
 
-def inertia_tensor_calc_matrix(matrix, weight):
-    num_rows, num_cols = matrix.shape
-    x = []
-    y = []
-    z = []
-    for a in range(num_rows):
-        x.append(matrix[a,0])
-        y.append(matrix[a,1])
-        z.append(matrix[a,2])
-
-    Jxx = 0
-    Jyy = 0
-    Jzz = 0
-    Jxy = 0
-    Jyz = 0
-    Jxz = 0
-    for i in range(num_rows):
-        Jxx += weight[i]*(y[i]*y[i] + z[i]*z[i])
-        Jyy += weight[i] * (x[i] * x[i] + z[i] * z[i])
-        Jzz += weight[i] * (x[i] * x[i] + y[i] * y[i])
-        Jxy += weight[i] * (-x[i]*y[i])
-        Jxz += weight[i] * (-x[i]*z[i])
-        Jyz += weight[i] * (-y[i]*z[i])
-    tens_inertia = np.matrix([[Jxx, Jxy, Jxz], [Jxy, Jyy, Jyz], [Jxz, Jyz, Jzz]])
-    return tens_inertia
 
 def rmsd(V, W):
     """
@@ -344,337 +176,6 @@ def rmsd(V, W):
         rmsd += sum([(v[i] - w[i])**2.0 for i in range(D)])
     return np.sqrt(rmsd/(N))
 
-def kabsch_rotate(P, Q):
-    """
-    Rotate matrix P unto matrix Q using Kabsch algorithm.
-
-    Parameters
-    ----------
-    P : array
-        (N,D) matrix, where N is points and D is dimension.
-    Q : array
-        (N,D) matrix, where N is points and D is dimension.
-
-    Returns
-    -------
-    P : array
-        (N,D) matrix, where N is points and D is dimension,
-        rotated
-
-    """
-    U = kabsch(P, Q)
-
-    # Rotate P
-    P = np.dot(P, U)
-    return P
-
-def kabsch(P, Q):
-    """
-    The optimal rotation matrix U is calculated and then used to rotate matrix
-    P unto matrix Q so the minimum root-mean-square deviation (RMSD) can be
-    calculated.
-
-    Using the Kabsch algorithm with two sets of paired point P and Q, centered
-    around the center-of-mass. Each vector set is represented as an NxD
-    matrix, where D is the the dimension of the space.
-
-    The algorithm works in three steps:
-    - a translation of P and Q
-    - the computation of a covariance matrix C
-    - computation of the optimal rotation matrix U
-
-    http://en.wikipedia.org/wiki/Kabsch_algorithm
-
-    Parameters
-    ----------
-    P : array
-        (N,D) matrix, where N is points and D is dimension.
-    Q : array
-        (N,D) matrix, where N is points and D is dimension.
-
-    Returns
-    -------
-    U : matrix
-        Rotation matrix (D,D)
-
-    """
-
-    # Computation of the covariance matrix
-    C = np.dot(np.transpose(P), Q)
-
-    # Computation of the optimal rotation matrix
-    # This can be done using singular value decomposition (SVD)
-    # Getting the sign of the det(V)*(W) to decide
-    # whether we need to correct our rotation matrix to ensure a
-    # right-handed coordinate system.
-    # And finally calculating the optimal rotation matrix U
-    # see http://en.wikipedia.org/wiki/Kabsch_algorithm
-    V, S, W = np.linalg.svd(C)
-    d = (np.linalg.det(V) * np.linalg.det(W)) < 0.0
-
-    if d:
-        S[-1] = -S[-1]
-        V[:, -1] = -V[:, -1]
-
-    # Create Rotation matrix U
-    U = np.dot(V, W)
-
-    return U
-
-def surface_plot(X,Y,Z,**kwargs):
-    """ WRITE DOCUMENTATION
-    """
-    xlabel, ylabel, zlabel, title = kwargs.get('X, Ang',""), kwargs.get('Y Ang',""), kwargs.get('Z Ang',""), kwargs.get('Molecule title',"")
-    fig = plt.figure()
-    fig.patch.set_facecolor('white')
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot_surface(X,Y,Z)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_zlabel(zlabel)
-    ax.set_title(title)
-    plt.show()
-    plt.close()
-
-def draw_and_calc(atoms, start_residue, end_residue):
-    newatoms = []
-    weights = []
-    #subdivide atoms
-    for atom in atoms:
-        current_rnumb = atom.get_residuesequencenumber()
-        if (start_residue <= current_rnumb <  end_residue):
-            newatoms.append(atom)
-            weights.append(atom.get_weight())
-    #position of center mass
-    cm_position = center_mass(newatoms)
-    #calculation of inertia tensor
-    i_tensor = inertia_tensor_calc(newatoms)
-    # calculating eigen values and eigen vectors
-    eigenValues, eigenVectors = np.linalg.eig(i_tensor)
-    # sorting
-    idx = eigenValues.argsort()[::-1]
-    eigenValues = eigenValues[idx]
-    eigenVectors = eigenVectors[:, idx]
-    #draw subplot in center of mass and eigen vectors
-    draw_atoms(newatoms, eigenVectors, cm_position)
-    # A in format (x1,y1,z1),...,(xn,yn,zn)
-    A = move_to_center_mass(newatoms, cm_position)
-    return A, weights
-
-def draw_atoms_from_matrix(A):
-    num_rows, num_cols = A.shape
-    x = []
-    y = []
-    z = []
-    for a in range(num_rows):
-        x.append(A[a,0])
-        y.append(A[a,1])
-        z.append(A[a,2])
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x, y, z, c= 'black', s=5)
-
-    ax.set_xlabel('X, Angstrem')
-    ax.set_ylabel('Y, Angstrem')
-    ax.set_zlabel('Z, Angstrem')
-    #plt.show()
-    return
-
-def draw_atoms_from_2matrix(A, weights1, B, weights2):
-    num_rows1, num_cols1 = A.shape
-    num_rows2, num_cols2 = B.shape
-    JA = inertia_tensor_calc_matrix(A, weights1)
-    JB = inertia_tensor_calc_matrix(B, weights2)
-    #finding eigen values and eigen vectors
-    eigenValues1, eigenVectors1 = np.linalg.eig(JA)
-    eigenValues2, eigenVectors2 = np.linalg.eig(JB)
-
-    # sorting
-    idx1 = eigenValues1.argsort()[::-1]
-    eigenValues1 = eigenValues1[idx1]
-    eigenVectors1 = eigenVectors1[:, idx1]
-    idx2 = eigenValues2.argsort()[::-1]
-    eigenValues2 = eigenValues2[idx2]
-    eigenVectors2 = eigenVectors2[:, idx2]
-
-    x1 = []
-    y1 = []
-    z1 = []
-    x2 = []
-    y2 = []
-    z2 = []
-    for a in range(num_rows1):
-        x1.append(A[a,0])
-        y1.append(A[a,1])
-        z1.append(A[a,2])
-    for b in range(num_rows2):
-        x2.append(B[b,0])
-        y2.append(B[b,1])
-        z2.append(B[b,2])
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x1, y1, z1, c= 'red', s=5)
-    ax.scatter(x2, y2, z2, c= 'black', s=5)
-    ax.set_xlabel('X, Angstrem')
-    ax.set_ylabel('Y, Angstrem')
-    ax.set_zlabel('Z, Angstrem')
-    #draw eigen vectors
-    length1 = max(x1) - min(x1)
-    if (max(y1) - min(y1)) > length1: length1 = max(y1) - min(y1)
-    if (max(z1) - min(z1)) > length1: length1 = max(z1) - min(z1)
-    length2 = max(x2) - min(x2)
-    if (max(y2) - min(y2)) > length2: length2 = max(y2) - min(y2)
-    if (max(z2) - min(z2)) > length2: length2 = max(z2) - min(z2)
-
-    eigenVectors1=np.transpose(eigenVectors1)*0.5*length1
-    eigenVectors2 = np.transpose(eigenVectors2)*0.5 * length2
-
-    for vec in eigenVectors1:
-        drawvec = Arrow3D([0, vec[0,0]], [0, vec[0,1]], [0, vec[0,2]],
-                          mutation_scale=20, lw=3, arrowstyle="-|>", color='b')
-        # adding the arrow to the plot
-        ax.add_artist(drawvec)
-        #ax.plot([0, 0.5*length1*a[0,0]], [0, 0.5*length1*a[0,1]], zs=[0, 0.5*length1*a[0,2]], color = 'blue')
-    for vec in eigenVectors2:
-        #ax.plot([0, 0.5*length2*b[0,0]], [0, 0.5*length2*b[0,1]], zs=[0, 0.5*length2*b[0,2]], color = 'green')
-        drawvec = Arrow3D([0, vec[0, 0]], [0, vec[0, 1]], [0, vec[0, 2]],
-                          mutation_scale=20, lw=3, arrowstyle="-|>", color='g')
-        # adding the arrow to the plot
-        ax.add_artist(drawvec)
-    #plt.show()
-    return
-
-def draw_atoms_from_2matrix_subJ(A, weights1, B, weights2):
-    num_rows1, num_cols1 = A.shape
-    num_rows2, num_cols2 = B.shape
-    JA = inertia_tensor_calc_matrix(A, weights1)
-    JB = inertia_tensor_calc_matrix(B, weights2)
-    #finding eigen values and eigen vectors
-    eigenValues1, eigenVectors1 = np.linalg.eig(JA)
-    eigenValues2, eigenVectors2 = np.linalg.eig(JB)
-
-    # sorting
-    idx1 = eigenValues1.argsort()[::-1]
-    eigenValues1 = eigenValues1[idx1]
-    eigenVectors1 = eigenVectors1[:, idx1]
-    idx2 = eigenValues2.argsort()[::-1]
-    eigenValues2 = eigenValues2[idx2]
-    eigenVectors2 = eigenVectors2[:, idx2]
-    # superimpose their principal axes
-    #A, eigenVectors1 = superimpose_two_inertia_tensors_very_simple(A , eigenVectors1, eigenVectors2)
-    #rotate manually
-    thickness = 5
-    A = rotation_z(A, 0)
-    A = rotation_y(A, 90)
-    A = rotation_x(A, 0)
-    print("RMSD = " + str(rmsd(A,B)))
-    x1 = []
-    y1 = []
-    z1 = []
-    x2 = []
-    y2 = []
-    z2 = []
-    for a in range(num_rows1):
-        x1.append(A[a,0])
-        y1.append(A[a,1])
-        z1.append(A[a,2])
-    for b in range(num_rows2):
-        x2.append(B[b,0])
-        y2.append(B[b,1])
-        z2.append(B[b,2])
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x1, y1, z1, c= 'red', s=thickness)
-    ax.scatter(x2, y2, z2, c= 'black', s=thickness)
-    ax.set_xlabel('X, Angstrem')
-    ax.set_ylabel('Y, Angstrem')
-    ax.set_zlabel('Z, Angstrem')
-    #draw eigen vectors
-    length1 = max(x1) - min(x1)
-    if (max(y1) - min(y1)) > length1: length1 = max(y1) - min(y1)
-    if (max(z1) - min(z1)) > length1: length1 = max(z1) - min(z1)
-    length2 = max(x2) - min(x2)
-    if (max(y2) - min(y2)) > length2: length2 = max(y2) - min(y2)
-    if (max(z2) - min(z2)) > length2: length2 = max(z2) - min(z2)
-
-    eigenVectors1=np.transpose(eigenVectors1)*0.5*length1
-    eigenVectors2 = np.transpose(eigenVectors2)*0.5 * length2
-
-    for vec in eigenVectors1:
-        drawvec = Arrow3D([0, vec[0,0]], [0, vec[0,1]], [0, vec[0,2]],
-                          mutation_scale=20, lw=3, arrowstyle="-|>", color='b')
-        # adding the arrow to the plot
-        ax.add_artist(drawvec)
-        #ax.plot([0, 0.5*length1*a[0,0]], [0, 0.5*length1*a[0,1]], zs=[0, 0.5*length1*a[0,2]], color = 'blue')
-    for vec in eigenVectors2:
-        #ax.plot([0, 0.5*length2*b[0,0]], [0, 0.5*length2*b[0,1]], zs=[0, 0.5*length2*b[0,2]], color = 'green')
-        drawvec = Arrow3D([0, vec[0, 0]], [0, vec[0, 1]], [0, vec[0, 2]],
-                          mutation_scale=20, lw=3, arrowstyle="-|>", color='g')
-        # adding the arrow to the plot
-        ax.add_artist(drawvec)
-    #plt.show()
-    return
-
-def superimpose_two_inertia_tensors(A, eigenVectors1, B, eigenVectors2):
-    #superimposing axes using Kabsh algorithm
-    ROT = kabsch (eigenVectors1, eigenVectors2)
-    ROT2Euler(ROT)
-    RMSD_min = rmsd(np.array(eigenVectors1), np.array(eigenVectors2))
-    ev1 = eigenVectors1.copy()
-    ev1 = ev1[:, [0, 1, 2]]
-    RMSD = rmsd(np.array(ev1), np.array(eigenVectors2))
-    if RMSD < RMSD_min:
-        RMSD_min =  RMSD
-        ev1_final = ev1
-    ev1 = eigenVectors1.copy()
-    ev1 = ev1[:, [0, 2, 1]]
-    RMSD = rmsd(np.array(ev1), np.array(eigenVectors2))
-    if RMSD < RMSD_min:
-        ev1_final = ev1
-        RMSD_min =  RMSD
-    ev1 = eigenVectors1.copy()
-    ev1 = ev1[:, [1, 0, 2]]
-    RMSD = rmsd(np.array(ev1), np.array(eigenVectors2))
-    if RMSD < RMSD_min:
-        ev1_final = ev1
-        RMSD_min =  RMSD
-    ev1 = eigenVectors1.copy()
-    ev1 = ev1[:, [1, 2, 0]]
-    RMSD = rmsd(np.array(ev1), np.array(eigenVectors2))
-    if RMSD < RMSD_min:
-        ev1_final = ev1
-        RMSD_min =  RMSD
-    ev1 = eigenVectors1.copy()
-    ev1 = ev1[:, [2, 1, 0]]
-    RMSD = rmsd(np.array(ev1), np.array(eigenVectors2))
-    if RMSD < RMSD_min:
-        ev1_final = ev1
-        RMSD_min =  RMSD
-    ev1 = eigenVectors1.copy()
-    ev1 = ev1[:, [2, 0, 1]]
-    RMSD = rmsd(np.array(ev1), np.array(eigenVectors2))
-    if RMSD < RMSD_min:
-        ev1_final = ev1
-        RMSD_min =  RMSD
-    ROT = kabsch (ev1_final, eigenVectors2)
-    ROT2Euler(ROT)
-    return  np.dot(A, ROT), np.dot(eigenVectors1, ROT)
-
-def superimpose_two_inertia_tensors_simple(A, eigenVectors1, B, eigenVectors2):
-    #superimposing axes using Kabsh algorithm
-    ROT = kabsch (eigenVectors1, eigenVectors2)
-    ROT2Euler(ROT)
-    # something wrong with eigenvectors1
-    return  np.dot(A, ROT), np.dot(eigenVectors1, ROT)
-
-def superimpose_two_inertia_tensors_very_simple(A, eigenVectors1, eigenVectors2):
-    ev1_r = np.transpose(eigenVectors1)
-    ev2_r = np.transpose(eigenVectors2)
-    #return  np.dot(A, ev1_r), np.dot(eigenVectors1, ev2_r)
-    #converting arbitrary rotational matrix into Euler angles
-    # something wrong with eigenvectors1
-    return  np.dot(np.dot(A, ev1_r),ev2_r), np.dot(np.dot(eigenVectors1, ev2_r), ev2_r)
 
 def rotate(A, ROT):
     return  np.dot(A, ROT)
@@ -707,35 +208,7 @@ def Euler2ROT(Tettax, Tettay, Tettaz):
     Z = [[math.cos(Tettaz), -math.sin(Tettaz), 0],[math.sin(Tettaz), math.cos(Tettaz), 0], [0, 0, 1]]
 
     return np.transpose(np.dot(Z,np.dot(Y, X)))
-# finds one-to-one correspondence between points
-def general_kabsh(P, Q, iteration):
-    num_rows_Q, num_cols_Q = Q.shape
-    if iteration >= num_rows_Q-1:
-        return Q
-    best_index = -1
-    RMSD_min = rmsd(P, kabsch_rotate(Q, P))
-    print("iteration = " + str(iteration) + " row = 0  RMSD = " + str(RMSD_min))
-    for i in range(iteration, num_rows_Q):
-        R = Q.copy()
-        # raws exchange between row with index (iteration) all rows below
-        R[iteration, 0], R[i,0] = R[i, 0], R[iteration,0]
-        RMSD = rmsd(P, kabsch_rotate(R, P))
-        if RMSD < RMSD_min:
-            #print("iteration = " + str(iteration) + " row = " + str(i) + " RMSD = " + str(RMSD))
-            RMSD_min = RMSD
-            best_index = i
-    if best_index == -1:
-        iteration += 1
-        Q = general_kabsh(P, Q, iteration)
-        return Q
-    else:
-        #print ("Best index = " + str(best_index))
-        #print ("RMSD old = " + str(rmsd(P, kabsch_rotate(Q, P))))
-        Q[[iteration, 0]], Q[[best_index, 0]] = Q[[best_index, 0]], Q[[iteration, 0]]
-        iteration +=1
-        Q = general_kabsh(P, Q, iteration)
-        return Q
-        #print ("RMSD new = " + str(rmsd(P, kabsch_rotate(Q, P))))
+
 
 def rotation_x(points, angle):
     angle = angle*(3.1416/180)
@@ -853,6 +326,7 @@ def tilt_twist(atoms1, atoms2):
     tilt = math.acos(np.dot(eigenVectors1[0], np.transpose(eigenVectors2[0])))
     twist = math.acos(np.dot(eigenVectors1[2], np.transpose(eigenVectors2[2])))
     return (180 / pi)*tilt, (180 / pi)*twist
+
 def tilt_c(atoms1, atoms2):
     # calculation of inertia tensor
     i_tensor1 = inertia_tensor_calc(atoms1)
@@ -880,6 +354,7 @@ def tilt_c(atoms1, atoms2):
     r = I + k + np.multiply(np.dot(k,k), ((1 - c) / (s ** 2)))
     #tilt = math.acos(np.vdot(eigenVectors1[0], eigenVectors2[0]))
     return (180 / pi)*tilt, r
+
 def twist_c(atoms1, atoms2, r):
     # calculation of inertia tensor
     i_tensor1 = inertia_tensor_calc(atoms1)
@@ -901,6 +376,7 @@ def twist_c(atoms1, atoms2, r):
     twist = angle(np.transpose(a), eigenVectors2[2])
     #twist = math.acos(np.dot(eigenVectors1[2], np.transpose(eigenVectors2[2])))
     return (180 / pi)*twist
+
 def domains_parsing(chain_identifiers):
     domains_bord = raw_input("For the chain " + str(chain_identifiers[i]) + " (AAAA-BBBB,CCCC-DDDD,... )")
     left_borders = []
