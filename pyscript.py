@@ -7,7 +7,6 @@ import math
 import os
 import numpy as np
 import time
-
 start = time.time()
 
 # Function make ATOM structure from a pdb string
@@ -29,7 +28,6 @@ def mk_atom(pdbstring):
     elementsymbol = pdbstring[77:78]
     return (ATOM(pdbstring, atomserialnumber, atomname,alternativelocationindicator,residuename,chainidentifier,residuesequencenumber,
                  codeforinsectionsofresidues,xcoord,ycoord,zcoord,occupancy,tempfactor,segmentidentifier,elementsymbol))
-
 
 #class ATOM contains all info about the atom from pdb string (starting with ATOM) and returns each value by response
 class ATOM:
@@ -125,8 +123,7 @@ class ATOM:
     def get_type(self):
         return("ATOM")
 
-
-
+#calculation of inertia tensor from set of atoms
 def inertia_tensor_calc(atoms):
     Jxx = 0
     Jyy = 0
@@ -148,38 +145,7 @@ def inertia_tensor_calc(atoms):
     tens_inertia = np.matrix([[Jxx, Jxy, Jxz], [Jxy, Jyy, Jyz], [Jxz, Jyz, Jzz]])
     return tens_inertia
 
-
-def rmsd(V, W):
-    """
-    Calculate Root-mean-square deviation from two sets of vectors V and W.
-
-    Parameters
-    ----------
-
-    V : array
-        (N,D) matrix, where N is points and D is dimension.
-    W : array
-        (N,D) matrix, where N is points and D is dimension.
-
-    Returns
-    -------
-    rmsd : float
-        Root-mean-square deviation
-
-    """
-    D = len(V[0])
-    N = len(V)
-    M = len(W)
-    if M < N: N = M
-    rmsd = 0.0
-    for v, w in zip(V, W):
-        rmsd += sum([(v[i] - w[i])**2.0 for i in range(D)])
-    return np.sqrt(rmsd/(N))
-
-
-def rotate(A, ROT):
-    return  np.dot(A, ROT)
-
+#calculation of transformational matrix from Euler angles (x-y-z)
 def ROT2Euler(ROT):
     ROT00 = float(ROT[0][0])
     ROT10 = float(ROT[0][1])
@@ -202,6 +168,7 @@ def ROT2Euler(ROT):
     print("Tetta Z = " + str(Tettaz * (180 / pi)))
     return Tettax, Tettay, Tettaz
 
+#calculation of Euler angles (x-y-z) from transformational matrix
 def Euler2ROT(Tettax, Tettay, Tettaz):
     X = [[1, 0, 0], [0, math.cos(Tettax),-math.sin(Tettax)], [0, math.sin(Tettax), math.cos(Tettax)]]
     Y = [[math.cos(Tettay), 0, math.sin(Tettay)], [0 ,1, 0], [-math.sin(Tettay), 0, math.cos(Tettay)]]
@@ -209,87 +176,14 @@ def Euler2ROT(Tettax, Tettay, Tettaz):
 
     return np.transpose(np.dot(Z,np.dot(Y, X)))
 
-
-def rotation_x(points, angle):
-    angle = angle*(3.1416/180)
-    r = np.array([[1, 0, 0], [0, math.cos(angle), -math.sin(angle)],
-                  [0, math.sin(angle), math.cos(angle)]] )
-    #p = points.T
-    newpoints = np.dot(points,r)
-    return np.around(newpoints)
-
-def rotation_y(points, angle):
-    angle = angle*(3.1416/180)
-    r = np.array([[math.cos(angle), 0, math.sin(angle)], [0, 1, 0],
-                  [-math.sin(angle), 0, math.cos(angle)]] )
-    #p = points.T
-    newpoints = np.dot(points,r)
-    return np.around(newpoints)
-
-def rotation_z(points, angle):
-    angle = angle*(3.1416/180)
-    r = np.array([[math.cos(angle), -math.sin(angle), 0], [math.sin(angle), math.cos(angle), 0],
-                  [0, 0, 1]] )
-    #p = points.T
-    newpoints = np.dot(points,r)
-    return np.around(newpoints)
-
-
-
-def atom_inside_sphere(atom1, atom2, R):
-    distance = math.sqrt((atom1.get_x_coord() - atom2.get_x_coord())**2+(atom1.get_y_coord() - atom2.get_y_coord())**2+
-                         (atom1.get_z_coord() - atom2.get_z_coord())**2)
-    if distance > R: return False
-    if distance <= R: return True
-
-def plot_arr(atoms):
-    hits = []
-    numbers = []
-    count = len(atoms)
-    i = 0
-    for atom1 in atoms:
-        num = 0
-        for atom2 in atoms:
-            if atom_inside_sphere(atom1, atom2, R):
-                num+=1
-        hits.append(num)
-        numbers.append(atom1.get_atomserialnumber())
-        print(str(i) + ' of  ' + str(count))
-        i+=1
-
-    #plt.hist(hits)
-    plt.figure()
-    plt.subplot()
-    plt.plot(numbers, hits, 'r-')
-    plt.title("Atoms in sphere with R =  " + str(R) + " Angstrems")
-    plt.xlabel("Atom number")
-    plt.ylabel("Count of atoms")
-
-    #fig = plt.gcf()
-    #(username = 'Molodenskiy', api_key = 'Jc4uP32ntpjUyxtMuWhl')
-    #py.plot_mpl(fig, filename='2y25')
-
+#creates n lists of atoms, where n - number of chains
 def subdivide_chains (atoms, chain_identifiers):
     chainatoms = []
     for id in chain_identifiers:
         chainatoms.append([a for a in atoms if a.get_chainidentifier() == id])
     return chainatoms
 
-def subdivide_chains_term(atoms, chain_borders):
-    number_of_chains = len(chain_borders) - 1
-    allatoms = []
-    i = 0
-    while i < number_of_chains:
-        locatoms = []
-        left_border = chain_borders[i]
-        right_border = chain_borders[i+1]
-        for atom in atoms:
-            if atom.get_atomserialnumber() > left_border and atom.get_atomserialnumber() < right_border:
-                locatoms.append(atom)
-        allatoms.append(locatoms)
-        i+=1
-    return allatoms
-
+#reverse transformation from list of atoms to pdb file
 def atoms2pdb(atoms):
     pdb = ""
     for atom in atoms:
@@ -297,6 +191,7 @@ def atoms2pdb(atoms):
 
     return pdb
 
+#transforms pdb file to list of atoms
 def pdb2atoms(filename):
     with open(filename, "r") as myfile:
         pdblist = myfile.readlines()
@@ -305,28 +200,12 @@ def pdb2atoms(filename):
         if x.startswith("ATOM"):
             atoms.append(mk_atom(x))
     return atoms
+
+#calculates angle between two vectors
 def angle(vec1,vec2):
     return np.arccos(np.clip(np.dot(vec1, np.transpose(vec2)), -1.0, 1.0))
 
-def tilt_twist(atoms1, atoms2):
-    # calculation of inertia tensor
-    i_tensor1 = inertia_tensor_calc(atoms1)
-    i_tensor2 = inertia_tensor_calc(atoms2)
-    # calculating eigen values and eigen vectors
-    eigenValues1, eigenVectors1 = np.linalg.eig(i_tensor1)
-    eigenValues2, eigenVectors2 = np.linalg.eig(i_tensor2)
-    # sorting
-    idx1 = eigenValues1.argsort()[::-1]
-    eigenValues1 = eigenValues1[idx1]
-    eigenVectors1 = eigenVectors1[:, idx1]
-    idx2 = eigenValues2.argsort()[::-1]
-    eigenValues2 = eigenValues2[idx2]
-    eigenVectors2 = eigenVectors2[:, idx2]
-    #calculate tilt and twist angle
-    tilt = math.acos(np.dot(eigenVectors1[0], np.transpose(eigenVectors2[0])))
-    twist = math.acos(np.dot(eigenVectors1[2], np.transpose(eigenVectors2[2])))
-    return (180 / pi)*tilt, (180 / pi)*twist
-
+#calculation of tilt angle between Z1 and Z2 and of transformational matrix of this operation
 def tilt_c(atoms1, atoms2):
     # calculation of inertia tensor
     i_tensor1 = inertia_tensor_calc(atoms1)
@@ -352,9 +231,9 @@ def tilt_c(atoms1, atoms2):
     vXStr = '{} {} {}; {} {} {}; {} {} {}'.format(0, -v[2], v[1], v[2], 0, -v[0], -v[1], v[0], 0)
     k = np.matrix(vXStr)
     r = I + k + np.multiply(np.dot(k,k), ((1 - c) / (s ** 2)))
-    #tilt = math.acos(np.vdot(eigenVectors1[0], eigenVectors2[0]))
     return (180 / pi)*tilt, r
 
+#calculation of twist angle between X1 and X2', where X2' is X2 after alignment of axes Z1 and Z2
 def twist_c(atoms1, atoms2, r):
     # calculation of inertia tensor
     i_tensor1 = inertia_tensor_calc(atoms1)
@@ -374,27 +253,39 @@ def twist_c(atoms1, atoms2, r):
     a = r.dot(np.transpose(a))
     #calculate twist angle
     twist = angle(np.transpose(a), eigenVectors2[2])
-    #twist = math.acos(np.dot(eigenVectors1[2], np.transpose(eigenVectors2[2])))
     return (180 / pi)*twist
 
+#dialog with user and borders parsing
 def domains_parsing(chain_identifiers):
-    domains_bord = raw_input("For the chain " + str(chain_identifiers[i]) + " (AAAA-BBBB,CCCC-DDDD,... )")
+    suc = True
     left_borders = []
     right_borders = []
-    doms = domains_bord.split(',')
-    for dom in doms:
-        borders = dom.split('-')
-        if (len(borders) != 2):
-            print("Bad domain indication!")
-            domains_parsing(chain_identifiers)
-
-        left_borders.append(int(borders[0]))
-        right_borders.append(int(borders[1]))
-        if (int(borders[0]) > int(borders[1])):
-            print ("Left border should be less than right border!")
-            domains_parsing(chain_identifiers)
-
+    while suc:
+        suc = False
+        domains_bord = raw_input("For the chain " + str(chain_identifiers[i]) + " (AAAA-BBBB,CCCC-DDDD,... )")
+        domains_bord = domains_bord.replace(" ", "")
+        doms = domains_bord.split(',')
+        for dom in doms:
+            borders = dom.split('-')
+            if (len(borders) != 2):
+                print("Bad domain indication!")
+                suc = True
+                continue
+            try:
+                left = int(borders[0])
+                right = int(borders[1])
+            except ValueError:
+                print("Please, use numbers only!")
+                suc = True
+                continue
+            if (left > right):
+                print ("Left border should be less or equal to right border!")
+                suc = True
+                continue
+            left_borders.append(int(borders[0]))
+            right_borders.append(int(borders[1]))
     return left_borders, right_borders
+
 #///////////////////////START PROGRAM////////////////////////////////////////////////////////////
 
 # open and read pdb file
@@ -507,7 +398,6 @@ while i < (len(filenames) - 1):
             L.append(line[40:72].split())  # split on whitespace and append value from third columns to list.
     L = np.array(L)
     Tettax,Tettay,Tettaz = ROT2Euler(L)
-    #ROT = Euler2ROT(Tettax, Tettay, Tettaz)
     eulersstring += "Superposition of " + first_file + " and " + second_file + ":\n"
     eulersstring += "Tetta z = " + str(Tettaz * (180 / pi)) + "\nTetta y = " + str(Tettay * (180 / pi))+"\nTetta x = "+str(Tettax * (180 / pi)) + "\n"
     # tilt and rotational matrix to align z and z'
@@ -518,11 +408,13 @@ while i < (len(filenames) - 1):
     print("Twist = " + str(float(twist)))
     print("Tilt = " + str(float((tilt))))
     eulersstring += st + "\n\n"
+    ###################################################################################
+    #ROT = Euler2ROT(Tettax, Tettay, Tettaz)
     #print("from supcomb")
     #print (L)
     #print("after double transformation")
     #print(ROT)
-    #####################################################################################################
+    ###################################################################################
     i+=1
 file = open("Results.txt", 'w')
 file.write(eulersstring)
@@ -530,5 +422,4 @@ file.close()
 end = time.time()
 print (" Time consumed : " + str(end - start) + " sec")
 
-
-#######################################################################################3
+##############################END PROGRAM##############################################
