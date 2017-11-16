@@ -368,6 +368,9 @@ cmd.extend('align_allfiles',align_allfiles)
 wth = raw_input("Do you want to use alignment? (n) ")
 ##########################################################
 if wth == 'n':
+    print("Twist and tilt angles will be calculated in respect with principal axes of inertia")
+    print("For good results use domain and the same domain after rotation")
+    print("Works only with ellipsoidal molecules!!!")
     eulersstring = ""
     first_file = raw_input("Please enter a pdb file name of the first domain ")
     second_file = raw_input("Please enter a pdb file name of the second domain ")
@@ -505,6 +508,7 @@ while i < (len(filenames) - 1):
         cmd.hide("lines", "all")
         cmd.show("cartoon", "all")
         cmd.align(first_file[0:-4], second_file[0:-4], cycles=0, object="aln")
+        cmd.save(second_file[0:-4], "all", -1,"pdb",)
 
     # tilt and rotational matrix to align z and z'
     tilt, r = tilt_c(pdb2atoms(second_file), pdb2atoms(outname))
