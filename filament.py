@@ -2,18 +2,26 @@ from subprocess import call
 pi = 3.14159265359
 call(["ls", "-l"])
 import sys
-import glob
+import glob, re
 import math
 import os
 import numpy as np
 import time
+import pymol
+from pymol import cmd
+# autocompletion
+import readline
+import rlcompleter
+readline.parse_and_bind('tab: complete')
 start = time.time()
+
+
 
 # Function make ATOM structure from a pdb string
 def mk_atom(pdbstring):
 
     atomserialnumber = pdbstring[7:11]
-    atomname = pdbstring[13:16]
+    atomname = pdbstring[12:16]
     alternativelocationindicator = pdbstring[17]
     residuename = pdbstring[18:20]
     chainidentifier = pdbstring[21]
@@ -68,8 +76,12 @@ class ATOM:
         self._segmentidentifier = segmentidentifier
         self._elementsymbol = elementsymbol
         #print("Atom: " + atomname.replace(" ","")[0])
-        self._weight = self.weights[atomname.replace(" ","")[0]]
+        try:
+            self._weight = self.weights[atomname.replace(" ","")[0]]
 
+        except ValueError:
+            print("Nonstandart atom!")
+            print(initstring)
 
     def get_pdb_string(self):
         return self._initstring
@@ -204,7 +216,8 @@ def pdb2atoms(filename):
 
 #calculates angle between two vectors
 def angle(vec1,vec2):
-    return np.arccos(np.clip(np.dot(vec1, np.transpose(vec2)), -1.0, 1.0))
+    angle = np.arccos(np.clip(np.dot(vec1, np.transpose(vec2)), -1.0, 1.0))
+    return np.array(angle)
 
 #calculation of tilt angle between Z1 and Z2 and of transformational matrix of this operation
 def tilt_c(atoms1, atoms2):
@@ -223,7 +236,12 @@ def tilt_c(atoms1, atoms2):
     eigenVectors2 = eigenVectors2[:, idx2]
     #calculate tilt angle
     a, b = eigenVectors1[0], eigenVectors2[0]
-    tilt = angle(a,b)
+    tilt1 = min(angle(a,b))
+    tilt2 = min(angle(-a,b))
+    tilt = min(tilt1, tilt2)
+    if tilt2 < tilt1:
+        tilt = tilt2
+        a = -a
     #calculate rotational matrix
     v = np.cross(a, b)[0][:]
     c = np.dot(a, np.transpose(b))[0]
@@ -287,7 +305,84 @@ def domains_parsing(chain_identifiers):
             right_borders.append(int(borders[1]))
     return left_borders, right_borders
 
+def align_allfiles(target=None,files=None,mobile_selection='name ca',target_selection='name ca',cutoff=2, cycles=5,cgo_object=0):
+  """
+  Aligns all models in a list of files to one target
+
+  usage:
+    align_allfiles [target][files=<filenames>][target_selection=name ca][mobile_selection=name ca]
+    [cutoff=2][cycles=5][cgo_object=0]
+        where target specifies the model id you want to align all others against,
+        and target_selection, mobile_selection, cutoff and cycles are options
+        passed to the align command.  You can specify the files to load and align
+        using a wildcard.
+
+    By default the selection is all C-alpha atoms and the cutoff is 2 and the
+    number of cycles is 5.
+    Setting cgo_object to 1, will cause the generation of an alignment object for
+    each object.  They will be named like <object>_on_<target>, where <object> and
+    <target> will be replaced by the real object and target names.
+
+    Example:
+      align_allfiles target=name1, files=model.B9999*.pdb, mobile_selection=c. b & n. n+ca+c+o,target_selection=c. a & n. n+ca+c+o
+
+  """
+  cutoff = int(cutoff)
+  cycles = int(cycles)
+  cgo_object = int(cgo_object)
+
+  file_list = glob.glob(files)
+  file_list.sort()
+  extension = re.compile( '(^.*[\/]|\.(pdb|ent|brk))' )
+  object_list = []
+
+  rmsd = {}
+  rmsd_list = []
+  for i in range(len(file_list)):
+    obj_name1 = extension.sub('',file_list[i])
+    object_list.append(extension.sub('',file_list[i]))
+    cmd.load(file_list[i],obj_name1)
+    if cgo_object:
+      objectname = 'align_%s_on_%s' % (object_list[i],target)
+      rms = cmd.align('%s & %s'%(object_list[i],mobile_selection),'%s & %s'%(target,target_selection),cutoff=cutoff,cycles=cycles,object=objectname)
+    else:
+      rms = cmd.align('%s & %s'%(object_list[i],mobile_selection),'%s & %s'%(target,target_selection),cutoff=cutoff,cycles=cycles)
+
+    rmsd[object_list[i]] = (rms[0],rms[1])
+    rmsd_list.append((object_list[i],rms[0],rms[1]))
+    cmd.delete(obj_name1)
+
+  rmsd_list.sort(lambda x,y: cmp(x[1],y[1]))
+# loop over dictionary and print out matrix of final rms values
+  print "Aligning against:",target
+  for object_name in object_list:
+    print "%s: %6.3f using %d atoms" % (object_name,rmsd[object_name][0],rmsd[object_name][1])
+
+  print "\nSorted from best match to worst:"
+  for r in rmsd_list:
+    print "%s: %6.3f using %d atoms" % r
+
+cmd.extend('align_allfiles',align_allfiles)
+
 #///////////////////////START PROGRAM////////////////////////////////////////////////////////////
+wth = raw_input("Do you want to use alignment? (n) ")
+##########################################################
+if wth == 'n':
+    eulersstring = ""
+    first_file = raw_input("Please enter a pdb file name of the first domain ")
+    second_file = raw_input("Please enter a pdb file name of the second domain ")
+    tilt, r = tilt_c(pdb2atoms(first_file), pdb2atoms(second_file))
+    twist = twist_c(pdb2atoms(first_file), pdb2atoms(second_file), r)
+    eulersstring += "Tilt = " + str(tilt) + ", Twist = " + str(twist) + "\n"
+    print("************************************************")
+    print("Twist = " + str(float(twist)))
+    print("Tilt = " + str(float((tilt))))
+    file = open("Results.txt", 'w')
+    file.write(eulersstring)
+    file.close()
+    end = time.time()
+    print (" Time consumed : " + str(end - start) + " sec")
+    sys.exit()
 
 # open and read pdb file
 init_pdb_name = raw_input("Please enter a pdb file name ")
@@ -300,12 +395,11 @@ atoms = []
 chain_borders = []
 chain_identifiers = []
 chain_borders.append(0)
-id = ''
 for x in pdblist:
-    if x.startswith("ATOM"):
+    if x.startswith("ATOM") or x.startswith("HETATM"):
         atoms.append(mk_atom(x))
-        if  atoms[-1].get_chainidentifier()!= id: chain_identifiers.append(atoms[-1].get_chainidentifier())
-        id = atoms[-1].get_chainidentifier()
+        if  atoms[-1].get_chainidentifier() not in chain_identifiers:
+            chain_identifiers.append(atoms[-1].get_chainidentifier())
     if x.startswith("TER"):
         chain_borders.append(x[7:11])
 if len(atoms) < 1:
@@ -376,31 +470,42 @@ if wth == 'n':
     #Sorting
     #filenames = sorted(filenames, key=lambda name: int(name[0]))
     #for f in filenames: print(f + " is written")
-
-# now turn of supcomb!
+rmsd = {}
+rmsd_list = []
 eulersstring = ""
 print ("Beginning of superposition...")
 i = 0
 while i < (len(filenames) - 1):
     first_file = filenames[i]
     second_file = filenames[i+1]
-    print ("Superposition of " + first_file + " and " + second_file)
-    outname = "o."+ second_file + ".aligned2." + first_file
-    call(["supcomb", first_file, second_file, "-o", outname])
-    # Read and transform matrix into Euler angles
-    L = []
-    st = ""
-    for index, line in enumerate(open(outname)):
-        if index <= 19: continue
-        elif index ==20: st = line[12:48]
-        elif index >= 25: break
+    wth = raw_input("Do you want to use supcomb or pymol for alignment? (s/p) I don't want alignment (n)")
+    if wth == 's':
+        print ("Superposition of " + first_file + " and " + second_file)
+        outname = "o."+ second_file + ".aligned2." + first_file
+        call(["supcomb", first_file, second_file, "-o", outname])
+        # Read and transform matrix into Euler angles
+        L = []
+        st = ""
+        for index, line in enumerate(open(outname)):
+            if index <= 19: continue
+            elif index ==20: st = line[12:48]
+            elif index >= 25: break
 
-        else:
-            L.append(line[40:72].split())  # split on whitespace and append value from third columns to list.
-    L = np.array(L)
-    Tettax,Tettay,Tettaz = ROT2Euler(L)
-    eulersstring += "Superposition of " + first_file + " and " + second_file + ":\n"
-    eulersstring += "Tetta z = " + str(Tettaz * (180 / pi)) + "\nTetta y = " + str(Tettay * (180 / pi))+"\nTetta x = "+str(Tettax * (180 / pi)) + "\n"
+            else:
+                L.append(line[40:72].split())  # split on whitespace and append value from third columns to list.
+        L = np.array(L)
+        Tettax,Tettay,Tettaz = ROT2Euler(L)
+        eulersstring += "Superposition of " + first_file + " and " + second_file + ":\n"
+        eulersstring += "Tetta z = " + str(Tettaz * (180 / pi)) + "\nTetta y = " + str(Tettay * (180 / pi))+"\nTetta x = "+str(Tettax * (180 / pi)) + "\n"
+    #######UNDER CONSTRUCTION##################################
+    if wth == 'p':
+        pymol.finish_launching()
+        cmd.load(first_file)
+        cmd.load(second_file)
+        cmd.hide("lines", "all")
+        cmd.show("cartoon", "all")
+        cmd.align(first_file[0:-4], second_file[0:-4], cycles=0, object="aln")
+
     # tilt and rotational matrix to align z and z'
     tilt, r = tilt_c(pdb2atoms(second_file), pdb2atoms(outname))
     twist = twist_c(pdb2atoms(second_file), pdb2atoms(outname), r)
