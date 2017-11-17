@@ -236,6 +236,7 @@ def tilt_c(atoms1, atoms2):
     eigenVectors2 = eigenVectors2[:, idx2]
     #calculate tilt angle
     a, b = eigenVectors1[0], eigenVectors2[0]
+    #directions of axes must coincide
     tilt1 = min(angle(a,b))
     tilt2 = min(angle(-a,b))
     tilt = min(tilt1, tilt2)
@@ -365,7 +366,7 @@ def align_allfiles(target=None,files=None,mobile_selection='name ca',target_sele
 cmd.extend('align_allfiles',align_allfiles)
 
 #///////////////////////START PROGRAM////////////////////////////////////////////////////////////
-wth = raw_input("Do you want to use alignment? (n) ")
+wth = raw_input("Do you want to use alignment? (n/any key) ")
 ##########################################################
 if wth == 'n':
     print("Twist and tilt angles will be calculated in respect with principal axes of inertia")
@@ -423,13 +424,13 @@ for ch in chain_identifiers:
 
 wth = raw_input("Do you want to use automatic domains subdivision? (y/n) ")
 filenames = []
-
 if wth == 'y':
     # subdivision on chains
     i=0
     for at in allchains_atoms:
         pdb_chain = atoms2pdb(at)
         filename = str(init_pdb_name[0:-4]) + "." + chain_identifiers[i]
+        filename = filename.replace(" ", "e")
         file = open(filename, 'w')
         i+=1
         file.write(pdb_chain)
@@ -473,15 +474,14 @@ if wth == 'n':
     #Sorting
     #filenames = sorted(filenames, key=lambda name: int(name[0]))
     #for f in filenames: print(f + " is written")
-rmsd = {}
-rmsd_list = []
+
 eulersstring = ""
+wth = raw_input("Do you want to use supcomb or pymol for alignment? (s/p) ")
 print ("Beginning of superposition...")
 i = 0
 while i < (len(filenames) - 1):
     first_file = filenames[i]
     second_file = filenames[i+1]
-    wth = raw_input("Do you want to use supcomb or pymol for alignment? (s/p) I don't want alignment (n)")
     if wth == 's':
         print ("Superposition of " + first_file + " and " + second_file)
         outname = "o."+ second_file + ".aligned2." + first_file
@@ -500,24 +500,46 @@ while i < (len(filenames) - 1):
         Tettax,Tettay,Tettaz = ROT2Euler(L)
         eulersstring += "Superposition of " + first_file + " and " + second_file + ":\n"
         eulersstring += "Tetta z = " + str(Tettaz * (180 / pi)) + "\nTetta y = " + str(Tettay * (180 / pi))+"\nTetta x = "+str(Tettax * (180 / pi)) + "\n"
+        eulersstring += st
+        print(st)
+        #show in pymol
+        pyscript = "/cmd.load('./" + outname + "' , quiet=0)\n"
+        pyscript += "/cmd.load('./" + first_file + "' , quiet=0)\n"
+        pyscript += "hide lines\n"
+        pyscript += "show cartoon\n"
+        file = open("log.pml", 'w')
+        file.write(pyscript)
+        file.close()
+        call(["pymol", "log.pml"])
+        #calculate tilt/twist
+        tilt, r = tilt_c(pdb2atoms(second_file), pdb2atoms(outname))
+        twist = twist_c(pdb2atoms(second_file), pdb2atoms(outname), r)
+        eulersstring += "Tilt = " +str(tilt) +  ", Twist = " + str(twist) + "\n"
+        print("************************************************")
+        print("Twist = " + str(float(twist)))
+        print("Tilt = " + str(float((tilt))))
+        eulersstring += "\n\n"
     #######UNDER CONSTRUCTION##################################
     if wth == 'p':
-        pymol.finish_launching()
-        cmd.load(first_file)
-        cmd.load(second_file)
-        cmd.hide("lines", "all")
-        cmd.show("cartoon", "all")
-        cmd.align(first_file[0:-4], second_file[0:-4], cycles=0, object="aln")
-        cmd.save(second_file[0:-4], "all", -1,"pdb",)
-
-    # tilt and rotational matrix to align z and z'
-    tilt, r = tilt_c(pdb2atoms(second_file), pdb2atoms(outname))
-    twist = twist_c(pdb2atoms(second_file), pdb2atoms(outname), r)
-    eulersstring += "Tilt = " +str(tilt) +  ", Twist = " + str(twist) + "\n"
-    print("************************************************")
-    print("Twist = " + str(float(twist)))
-    print("Tilt = " + str(float((tilt))))
-    eulersstring += st + "\n\n"
+        pyscript = "/cmd.load('./" + first_file + "' , quiet=0)\n"
+        pyscript += "/cmd.load('./" + second_file + "' , quiet=0)\n"
+        pyscript += "hide lines\n"
+        pyscript += "show cartoon\n"
+        pyscript += "align " + second_file[0:-4]+","+first_file[0:-4] + "\n"
+        pyscript += "save " + "o."+ first_file + ".aligned2." + second_file + ",((" + second_file[0:-4] + "))\n"
+        outname = "o."+ first_file + ".aligned2." + second_file
+        file = open("log.pml", 'w')
+        file.write(pyscript)
+        file.close()
+        call(["pymol", "log.pml"])
+        # tilt and rotational matrix to align z and z'
+        tilt, r = tilt_c(pdb2atoms(first_file), pdb2atoms(outname))
+        twist = twist_c(pdb2atoms(first_file), pdb2atoms(outname), r)
+        eulersstring += "Tilt = " +str(tilt) +  ", Twist = " + str(twist) + "\n"
+        print("************************************************")
+        print("Twist = " + str(float(twist)))
+        print("Tilt = " + str(float((tilt))))
+        eulersstring += "\n\n"
     ###################################################################################
     #ROT = Euler2ROT(Tettax, Tettay, Tettaz)
     #print("from supcomb")
